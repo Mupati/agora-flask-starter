@@ -1,0 +1,24 @@
+{% extends "base.html" %} {% block content %}
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      {{ form.csrf_token }}
+      <div class="form-group">
+        <label for="emailInput">{{ form.email.label }}</label>
+        {{form.email(class_="form-control")}}
+      </div>
+      <div class="form-group">
+        <label for="passwordInput">{{ form.password.label }}</label>
+        {{form.password(class_="form-control")}}
+      </div>
+      {{form.submit(class_="btn btn-primary btn-lg btn-block")}}
+    </form>
+
+    <div class="mt-3">
+      <a href="{{ url_for('auth.register') }}" class="card-link mt-3"
+        >Create Account</a
+      >
+    </div>
+  </div>
+</div>
+{% endblock%}

@@ -1,0 +1,11 @@
+main {
+  height: 100vh;
+  padding-top: 50px;
+}
+.card {
+  width: 50vw;
+  padding: 2% 10%;
+  margin-right: auto;
+  margin-left: auto;
+  margin-top: 50px;
+}
