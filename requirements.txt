@@ -18,6 +18,7 @@ Jinja2==2.11.3
 Mako==1.1.4
 MarkupSafe==1.1.1
 ndg-httpsclient==0.5.1
+pusher==3.0.0
 pyasn1==0.4.8
 pycparser==2.20
 PyNaCl==1.4.0
