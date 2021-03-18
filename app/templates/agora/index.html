@@ -1,3 +1,104 @@
-{% extends "base.html" %}{% block content%}
-<h1>Welcome! Agora Call Page</h1>
+
+
+{% extends "base.html" %} {% block head_scripts %}
+<link
+  rel="stylesheet"
+  type="text/css"
+  href="{{ url_for('static', filename='agora/index.css') }}"
+/>
+<script src="https://cdn.agora.io/sdk/release/AgoraRTCSDK-3.3.1.js"></script>
+{% endblock head_scripts %} {% block content%}
+<div id="app">
+  <div class="container my-5">
+    <div class="row">
+      <div class="col">
+        <div class="btn-group" role="group">
+          {% for singleUser in allUsers%} {% if singleUser['id'] !=
+          current_user['id'] %}
+          <button
+            type="button"
+            class="btn btn-primary mr-2"
+            @click="placeCall('{{singleUser.id}}','{{singleUser['username']}}')"
+          >
+            Call {{ singleUser['username'] }}
+            <span class="badge badge-light"
+              >${ getUserOnlineStatus({{singleUser.id}})}</span
+            >
+          </button>
+
+          {% endif %} {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming Call  -->
+    <div class="row my-5" v-if="incomingCall">
+      <div class="col-12">
+        <p>Incoming Call From <strong>${ incomingCaller }</strong></p>
+        <div class="btn-group" role="group">
+          <button
+            type="button"
+            class="btn btn-danger"
+            data-dismiss="modal"
+            @click="declineCall"
+          >
+            Decline
+          </button>
+          <button
+            type="button"
+            class="btn btn-success ml-5"
+            @click="acceptCall"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- End of Incoming Call  -->
+  </div>
+
+  <section id="video-container" v-if="callPlaced">
+    <div id="local-video"></div>
+    <div id="remote-video"></div>
+
+    <div class="action-btns">
+      <button type="button" class="btn btn-info" @click="handleAudioToggle">
+        ${ mutedAudio ? "Unmute" : "Mute" }
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary mx-4"
+        @click="handleVideoToggle"
+      >
+        ${ mutedVideo ? "ShowVideo" : "HideVideo" }
+      </button>
+      <button type="button" class="btn btn-danger" @click="endCall">
+        EndCall
+      </button>
+    </div>
+  </section>
+</div>
 {% endblock content %}
+
+<!-- Add Scripts -->
+{% block bottom_scripts%}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pusher/7.0.3/pusher.min.js"></script>
+<script>
+  window.pusher = new Pusher("420e941c25574fda6378", {
+    authEndpoint: "{{ url_for('agora.pusher_auth') }}",
+    auth: {
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}",
+      },
+    },
+  });
+
+  const AUTH_USER = "{{current_user['username']}}";
+  const AUTH_USER_ID = "{{current_user['id']}}";
+  const CSRF_TOKEN = "{{ csrf_token }}";
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="{{ url_for('static', filename='agora/index.js') }}"></script>
+{% endblock bottom_scripts %}
+
