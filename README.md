@@ -7,8 +7,8 @@ A starter kit for a flask application with Authentication using the factory patt
 Only sqlite is supported. To use other databases, install the required drivers and update the `SQLALCHEMY_DATABASE_URI` environment variable with the corresponding details. Learn more from the  [Flask SQLAlchemy Documentation](https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/#configuration-keys)<br/>
 
 I created this to help users to follow some technical articles I've written on:<br/>
-1. [Dev.to](https://dev.to/mupati)
-2. [Medium](https://mupati.medium.com)
+1. [Dev.to](https://dev.to/mupati/build-a-scalable-video-chat-app-with-agora-in-flask-52pg)
+2. [Medium](https://mupati.medium.com/build-a-scalable-video-chat-app-with-agora-in-flask-e8f4de554f25)
 
 ## Setup
 
