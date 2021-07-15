@@ -46,3 +46,7 @@
   flex-direction: row;
   flex-wrap: wrap;
 }
+
+#btnGroup {
+  flex-wrap: wrap;
+}
