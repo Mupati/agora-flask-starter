@@ -20,6 +20,11 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get(
         'SQLALCHEMY_TRACK_MODIFICATIONS')
 
+    # app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get(
+    #     'TEMPLATES_AUTO_RELOAD')
+    # app.config['SEND_FILE_MAX_AGE_DEFAULT'] = os.environ.get(
+    #     'SEND_FILE_MAX_AGE_DEFAULT')
+
     login_manager.init_app(app)
     login_manager.login_message = "Access Denied!, Log in to proceed"
     login_manager.login_view = "auth.login"
@@ -34,5 +39,8 @@ def create_app():
     # blueprint for agora
     from .agora import agora as agora_blueprint
     app.register_blueprint(agora_blueprint)
+
+    from .agora_rtm import agora_rtm as agora_rtm_blueprint
+    app.register_blueprint(agora_rtm_blueprint)
 
     return app

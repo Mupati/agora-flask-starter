@@ -1,0 +1,99 @@
+{% extends "base.html" %} {% block head_scripts %}
+<link
+  rel="stylesheet"
+  type="text/css"
+  href="{{ url_for('static', filename='agora/index.css') }}"
+/>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.6.3.js"></script>
+<script
+  src="{{ url_for('static', filename='agora_rtm/agora-rtm.js') }}"
+  type="module"
+></script>
+{% endblock head_scripts %} {% block content%}
+<div id="app">
+  <div class="container my-5">
+    <div class="row">
+      <div class="col" v-if="updatedOnlineStatus">
+        <div class="btn-group" role="group" id="btnGroup">
+          {% for singleUser in allUsers%} {% if singleUser['id'] !=
+          current_user['id'] %}
+          <button
+            type="button"
+            class="btn btn-primary mr-2 my-2"
+            @click="placeCall('{{singleUser['username']}}')"
+          >
+            Call {{ singleUser['username'] }}
+            <span class="badge badge-light"
+              >${ getUserOnlineStatus("{{singleUser.username}}")}</span
+            >
+          </button>
+
+          {% endif %} {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming Call  -->
+    <div class="row my-5" v-if="incomingCall">
+      <div class="col-12">
+        <p>Incoming Call From <strong>${ incomingCaller }</strong></p>
+        <div class="btn-group" role="group">
+          <button
+            type="button"
+            class="btn btn-danger"
+            data-dismiss="modal"
+            @click="declineCall"
+          >
+            Decline
+          </button>
+          <button
+            type="button"
+            class="btn btn-success ml-5"
+            @click="acceptCall"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- End of Incoming Call  -->
+  </div>
+
+  <section id="video-container" v-if="callPlaced">
+    <div id="local-video" ref="localVideo"></div>
+    <div id="remote-video" ref="remoteVideo"></div>
+
+    <div class="action-btns">
+      <button type="button" class="btn btn-info" @click="handleAudioToggle">
+        ${ mutedAudio ? "Unmute" : "Mute" }
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary mx-4"
+        @click="handleVideoToggle"
+      >
+        ${ mutedVideo ? "ShowVideo" : "HideVideo" }
+      </button>
+      <button type="button" class="btn btn-danger" @click="endCall">
+        EndCall
+      </button>
+    </div>
+  </section>
+</div>
+{% endblock content %}
+
+<!-- Add Scripts -->
+{% block bottom_scripts%}
+<script>
+  const AUTH_USER = "{{current_user['username']}}";
+  const AUTH_USER_ID = "{{current_user['id']}}";
+  const CSRF_TOKEN = "{{ csrf_token }}";
+  const AGORA_APP_ID = "{{agoraAppID}}";
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script
+  src="{{ url_for('static', filename='agora_rtm/index.js') }}"
+  type="module"
+></script>
+{% endblock bottom_scripts %}
