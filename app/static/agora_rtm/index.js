@@ -3,37 +3,44 @@ const app = new Vue({
   delimiters: ["${", "}"],
   data: {
     callPlaced: false,
-    client: null,
     localStream: null,
     mutedAudio: false,
     mutedVideo: false,
-    userOnlineChannel: null,
     onlineUsers: [],
+    isLoggedIn: false,
     incomingCall: false,
     incomingCaller: "",
-    agoraChannel: null,
     rtmClient: null,
     rtmChannel: null,
+    rtcClient: null,
     users: [],
     onlineStatuses: null,
-    updatedOnlineStatus: null,
-    tokenData: null,
+    updatedOnlineStatus: {},
     channelName: null,
+    isCallingUser: false,
+    callingUserNotification: "",
   },
   mounted() {
     this.fetchUsers();
     this.initRtmInstance();
   },
 
-  async destroyed() {
-    this.rtmChannel.leave(AUTH_USER);
-    await this.rtmClient.logout();
+  computed: {},
+
+  created() {
+    window.addEventListener("beforeunload", this.logoutUser);
   },
 
   methods: {
     async fetchUsers() {
       const { data } = await axios.get("/users");
       this.users = data;
+    },
+
+    async logoutUser() {
+      console.log("destroyed!!!");
+      this.rtmChannel.leave(AUTH_USER);
+      await this.rtmClient.logout();
     },
 
     async initRtmInstance() {
@@ -48,14 +55,13 @@ const app = new Vue({
       // Generate the RTM token
       const { data } = await this.generateToken(this.channelName);
 
-      this.tokenData = data;
-
       // Login when it mounts
       await this.rtmClient.login({
         uid: AUTH_USER,
         token: data.rtm_token,
       });
-      // Log out handler
+
+      this.isLoggedIn = true;
 
       // RTM Message Listeners
       this.rtmClient.on("MessageFromPeer", (message, peerId) => {
@@ -125,6 +131,7 @@ const app = new Vue({
 
       this.rtmClient.on("PeersOnlineStatusChanged", (data) => {
         this.updatedOnlineStatus = data;
+        console.log("updatedOnlineStatus: ", this.updatedOnlineStatus);
       });
 
       // Subscribes to the online statuses of all users apart from
@@ -141,19 +148,11 @@ const app = new Vue({
       // Join the RTM Channel
       this.rtmChannel.join();
 
-      // The number of connecte
-      const count = await this.rtmClient.getChannelMemberCount([
-        this.channelName,
-      ]);
-
-      const members = await this.rtmChannel.getMembers();
-
       this.onlineStatuses = await this.rtmClient.queryPeersOnlineStatus(
         this.users
           .map((user) => user.username)
           .filter((user) => user !== AUTH_USER)
       );
-      console.log(this.onlineStatuses);
 
       this.rtmChannel.on("ChannelMessage", (message, memberId) => {
         console.log("ChannelMessage");
@@ -180,6 +179,8 @@ const app = new Vue({
           (member) => member === memberId
         );
         this.onlineUsers.splice(leavingUserIndex, 1);
+
+        console.log(this.onlineUsers);
       });
 
       this.rtmChannel.on("MemberCountUpdated", (data) => {
@@ -188,33 +189,57 @@ const app = new Vue({
     },
 
     getUserOnlineStatus(username) {
-      console.log(this.onlineStatuses?.[username]);
-      if (this.onlineStatuses?.[username]) {
-        return "Online";
+      const onlineUserIndex = this.onlineUsers.findIndex(
+        (user) => user === username
+      );
+      if (onlineUserIndex < 0) {
+        return "Offline";
       }
-      return "offline";
+      return "Online";
     },
 
     async placeCall(calleeName) {
-      // Create a channel/room name for the video call
-      const videoChannelName = `${AUTH_USER}_${calleeName}`;
-      // Create LocalInvitation
-      this.localInvitation = this.rtmClient.createLocalInvitation(calleeName);
+      // Get the online status of the user.
+      // For our use case, if the user is not online we cannot place a call.
+      // We send a notification to the caller accordingly.
+      this.isCallingUser = true;
 
-      // set the channelId
-      this.localInvitation.channelId = videoChannelName;
+      this.callingUserNotification = `Calling ${calleeName}...`;
+      const onlineStatus = await this.rtmClient.queryPeersOnlineStatus([
+        calleeName,
+      ]);
 
-      // Send call invitation
-      this.localInvitation.send();
+      if (!onlineStatus[calleeName]) {
+        setTimeout(() => {
+          this.callingUserNotification = `${calleeName} could not be reached`;
 
-      // Generate an RTM token using the channel/room name
-      const { data } = await this.generateToken(videoChannelName);
+          setTimeout(() => {
+            this.isCallingUser = false;
+          }, 5000);
+        }, 5000);
+      } else {
+        // Create a channel/room name for the video call
+        const videoChannelName = `${AUTH_USER}_${calleeName}`;
+        // Create LocalInvitation
+        this.localInvitation = this.rtmClient.createLocalInvitation(calleeName);
 
-      // Initialize the agora RTM Client
-      this.initializeAgora();
+        // set the channelId
+        this.localInvitation.channelId = videoChannelName;
 
-      // Join a room using the channel name. The callee will also join the room then accept the call
-      await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
+        // Send call invitation
+        this.localInvitation.send();
+
+        // Generate an RTM token using the channel/room name
+        const { data } = await this.generateToken(videoChannelName);
+
+        // Initialize the agora RTM Client
+        this.initializeAgora();
+
+        // Join a room using the channel name. The callee will also join the room then accept the call
+        await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
+        this.isCallingUser = false;
+        this.callingUserNotification = "";
+      }
     },
 
     cancelCall() {
@@ -267,12 +292,12 @@ const app = new Vue({
      * Agora Events and Listeners
      */
     initializeAgora() {
-      this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     },
 
     async joinRoom(appID, token, channel) {
       try {
-        await this.client.join(appID, channel, token, AUTH_USER);
+        await this.rtcClient.join(appID, channel, token, AUTH_USER);
         this.callPlaced = true;
         this.createLocalStream();
         this.initializedAgoraListeners();
@@ -283,8 +308,8 @@ const app = new Vue({
 
     initializedAgoraListeners() {
       //   Register event listeners
-      this.client.on("user-published", async (user, mediaType) => {
-        await this.client.subscribe(user, mediaType);
+      this.rtcClient.on("user-published", async (user, mediaType) => {
+        await this.rtcClient.subscribe(user, mediaType);
 
         // If the remote user publishes a video track.
         if (mediaType === "video") {
@@ -301,7 +326,7 @@ const app = new Vue({
         }
       });
 
-      this.client.on("user-unpublished", (data) => {
+      this.rtcClient.on("user-unpublished", (data) => {
         console.log("USER UNPUBLISHED: ", data);
       });
     },
@@ -309,13 +334,13 @@ const app = new Vue({
     async createLocalStream() {
       const [microphoneTrack, cameraTrack] =
         await AgoraRTC.createMicrophoneAndCameraTracks();
-      await this.client.publish([microphoneTrack, cameraTrack]);
+      await this.rtcClient.publish([microphoneTrack, cameraTrack]);
       cameraTrack.play("local-video");
     },
 
     async endCall() {
-      await this.client.unpublish();
-      await this.client.leave();
+      await this.rtcClient.unpublish();
+      await this.rtcClient.leave();
     },
 
     handleAudioToggle() {

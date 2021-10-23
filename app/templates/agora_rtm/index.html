@@ -13,7 +13,7 @@
 <div id="app">
   <div class="container my-5">
     <div class="row">
-      <div class="col" v-if="updatedOnlineStatus">
+      <div class="col" v-if="isLoggedIn">
         <div class="btn-group" role="group" id="btnGroup">
           {% for singleUser in allUsers%} {% if singleUser['id'] !=
           current_user['id'] %}
@@ -23,13 +23,15 @@
             @click="placeCall('{{singleUser['username']}}')"
           >
             Call {{ singleUser['username'] }}
-            <span class="badge badge-light"
-              >${ getUserOnlineStatus("{{singleUser.username}}")}</span
-            >
           </button>
-
           {% endif %} {% endfor %}
         </div>
+      </div>
+    </div>
+
+    <div class="row my-5" v-if="isCallingUser">
+      <div class="col-12">
+        <p>${callingUserNotification}</p>
       </div>
     </div>
 
