@@ -40,4 +40,4 @@ def generate_agora_token():
 
     rtm_token = RtmTokenBuilder.buildToken(
         appID, appCertificate, userAccount, Role_Rtm_User, privilegeExpiredTs)
-    return jsonify({'token': token, 'rtm_token': rtm_token, 'appID': appID})
+    return jsonify({'token': rtm_token, 'rtm_token': rtm_token, 'appID': appID})
