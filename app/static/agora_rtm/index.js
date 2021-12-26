@@ -15,7 +15,6 @@ const app = new Vue({
     rtmChannel: null,
     rtcClient: null,
     users: [],
-    onlineStatuses: null,
     updatedOnlineStatus: {},
     channelName: null,
     isCallingUser: false,
@@ -30,8 +29,6 @@ const app = new Vue({
     this.initRtmInstance();
   },
 
-  computed: {},
-
   created() {
     window.addEventListener("beforeunload", this.logoutUser);
   },
@@ -39,6 +36,18 @@ const app = new Vue({
   beforeDestroy() {
     this.endCall();
     this.logoutUser();
+  },
+
+  computed: {
+    canDisplayUsers() {
+      console.log(Object.keys(this.updatedOnlineStatus).length);
+      console.log(Object.keys(this.users).length);
+
+      return (
+        Object.keys(this.updatedOnlineStatus).length ===
+        Object.keys(this.users).length - 1
+      );
+    },
   },
 
   methods: {
@@ -111,11 +120,6 @@ const app = new Vue({
         });
       });
 
-      this.rtmClient.on("PeersOnlineStatusChanged", (data) => {
-        this.updatedOnlineStatus = data;
-        console.log("updatedOnlineStatus: ", this.updatedOnlineStatus);
-      });
-
       // Subscribes to the online statuses of all users apart from
       // the currently authenticated user
       this.rtmClient.subscribePeersOnlineStatus(
@@ -124,17 +128,15 @@ const app = new Vue({
           .filter((user) => user !== AUTH_USER)
       );
 
+      this.rtmClient.on("PeersOnlineStatusChanged", (data) => {
+        this.updatedOnlineStatus = data;
+      });
+
       // Create a channel and listen to messages
       this.rtmChannel = this.rtmClient.createChannel(this.channelName);
 
       // Join the RTM Channel
       this.rtmChannel.join();
-
-      this.onlineStatuses = await this.rtmClient.queryPeersOnlineStatus(
-        this.users
-          .map((user) => user.username)
-          .filter((user) => user !== AUTH_USER)
-      );
 
       this.rtmChannel.on("ChannelMessage", (message, memberId) => {
         console.log("ChannelMessage");
@@ -253,7 +255,6 @@ const app = new Vue({
     },
 
     async cancelCall() {
-      console.log(this.localInvitation);
       await this.localInvitation.cancel();
       this.isCallingUser = false;
     },

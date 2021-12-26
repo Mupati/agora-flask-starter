@@ -5,10 +5,7 @@
   href="{{ url_for('static', filename='agora/index.css') }}"
 />
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.7.0.js"></script>
-<script
-  src="{{ url_for('static', filename='agora_rtm/agora-rtm.js') }}"
-  type="module"
-></script>
+<script src="{{ url_for('static', filename='agora_rtm/agora-rtm.js') }}"></script>
 {% endblock head_scripts %} {% block content%}
 <div id="app">
   <div class="container my-5">
@@ -16,16 +13,17 @@
       <div class="col" v-if="isLoggedIn">
         <div class="btn-group" role="group" id="btnGroup">
           {% for singleUser in allUsers%} {% if singleUser['id'] !=
-          current_user['id'] %}
+          current_user['id'] %} {% set username = singleUser['username']%}
           <button
             type="button"
             class="btn btn-primary mr-2 my-2"
-            @click="placeCall('{{singleUser['username']}}')"
+            @click="placeCall('{{username}}')"
           >
-            Call {{ singleUser['username'] }}
-            <!-- <span v-if="updatedOnlineStatus[{{singleUser['username']}}]"
-              >${updatedOnlineStatus?.[{{singleUser['username']}}]}</span
-            > -->
+            Call {{ username}}
+            <span class="badge badge-light"
+              >${updatedOnlineStatus?.["{{username}}"]?.toLowerCase() ||
+              'offline'}</span
+            >
           </button>
           {% endif %} {% endfor %}
         </div>
@@ -101,8 +99,5 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-<script
-  src="{{ url_for('static', filename='agora_rtm/index.js') }}"
-  type="module"
-></script>
+<script src="{{ url_for('static', filename='agora_rtm/index.js') }}"></script>
 {% endblock bottom_scripts %}
