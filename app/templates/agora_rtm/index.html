@@ -4,7 +4,7 @@
   type="text/css"
   href="{{ url_for('static', filename='agora/index.css') }}"
 />
-<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.6.3.js"></script>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.7.0.js"></script>
 <script
   src="{{ url_for('static', filename='agora_rtm/agora-rtm.js') }}"
   type="module"
@@ -23,6 +23,9 @@
             @click="placeCall('{{singleUser['username']}}')"
           >
             Call {{ singleUser['username'] }}
+            <!-- <span v-if="updatedOnlineStatus[{{singleUser['username']}}]"
+              >${updatedOnlineStatus?.[{{singleUser['username']}}]}</span
+            > -->
           </button>
           {% endif %} {% endfor %}
         </div>
@@ -32,13 +35,17 @@
     <div class="row my-5" v-if="isCallingUser">
       <div class="col-12">
         <p>${callingUserNotification}</p>
+        <button type="button" class="btn btn-danger" @click="cancelCall">
+          Cancel Call
+        </button>
       </div>
     </div>
 
     <!-- Incoming Call  -->
     <div class="row my-5" v-if="incomingCall">
       <div class="col-12">
-        <p>Incoming Call From <strong>${ incomingCaller }</strong></p>
+        <!-- <p>Incoming Call From <strong>${ incomingCaller }</strong></p> -->
+        <p>${incomingCallNotification}</p>
         <div class="btn-group" role="group">
           <button
             type="button"

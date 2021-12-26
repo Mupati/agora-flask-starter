@@ -10,6 +10,7 @@ const app = new Vue({
     isLoggedIn: false,
     incomingCall: false,
     incomingCaller: "",
+    incomingCallNotification: "",
     rtmClient: null,
     rtmChannel: null,
     rtcClient: null,
@@ -19,6 +20,10 @@ const app = new Vue({
     channelName: null,
     isCallingUser: false,
     callingUserNotification: "",
+    localAudioTrack: null,
+    localVideoTrack: null,
+    remoteVideoTrack: null,
+    remoteAudioTrack: null,
   },
   mounted() {
     this.fetchUsers();
@@ -29,6 +34,11 @@ const app = new Vue({
 
   created() {
     window.addEventListener("beforeunload", this.logoutUser);
+  },
+
+  beforeDestroy() {
+    this.endCall();
+    this.logoutUser();
   },
 
   methods: {
@@ -78,55 +88,27 @@ const app = new Vue({
       });
       // Emitted when a Call Invitation is sent from Remote User
       this.rtmClient.on("RemoteInvitationReceived", (data) => {
-        console.log("REMOTE INVITATION RECEIVED: ", data);
         this.remoteInvitation = data;
         this.incomingCall = true;
         this.incomingCaller = data.callerId;
-      });
+        this.incomingCallNotification = `Incoming Call From ${data.callerId}`;
 
-      this.rtmClient.on("LocalInvitationReceivedByPeer", (data) => {
-        console.log("LOCAL INVITATION RECEIVED BY PEER");
-        console.log(data);
-      });
-
-      this.rtmClient.on("LocalInvitationCanceled", (data) => {
-        console.log("LOCAL INVITATION CANCELED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("RemoteInvitationCanceled", (data) => {
-        console.log("REMOTE INVITATION CANCELED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("LocalInvitationAccepted", (data) => {
-        console.log("LOCAL INVITATION ACCEPTED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("RemoteInvitationAccepted", (data) => {
-        console.log("REMOTE INVITATION ACCEPTED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("LocalInvitationRefused", (data) => {
-        console.log("LOCAL INVITATION REFUSED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("RemoteInvitationRefused", (data) => {
-        console.log("REMOTE INVITATION REFUSED");
-        console.log(data);
-      });
-
-      this.rtmClient.on("LocalInvitationFailure", (data) => {
-        console.log("LOCAL INVITATION FAILURE");
-        console.log(data);
-      });
-
-      this.rtmClient.on("RemoteInvitationFailure", (data) => {
-        console.log("REMOTE INVITATION FAILURE");
-        console.log(data);
+        data.on("RemoteInvitationCanceled", () => {
+          console.log("RemoteInvitationCanceled: ");
+          this.incomingCallNotification = "Call has been cancelled";
+          setTimeout(() => {
+            this.incomingCall = false;
+          }, 5000);
+        });
+        data.on("RemoteInvitationAccepted", (data) => {
+          console.log("REMOTE INVITATION ACCEPTED: ", data);
+        });
+        data.on("RemoteInvitationRefused", (data) => {
+          console.log("REMOTE INVITATION REFUSED: ", data);
+        });
+        data.on("RemoteInvitationFailure", (data) => {
+          console.log("REMOTE INVITATION FAILURE: ", data);
+        });
       });
 
       this.rtmClient.on("PeersOnlineStatusChanged", (data) => {
@@ -179,23 +161,11 @@ const app = new Vue({
           (member) => member === memberId
         );
         this.onlineUsers.splice(leavingUserIndex, 1);
-
-        console.log(this.onlineUsers);
       });
 
       this.rtmChannel.on("MemberCountUpdated", (data) => {
         console.log("MemberCountUpdated");
       });
-    },
-
-    getUserOnlineStatus(username) {
-      const onlineUserIndex = this.onlineUsers.findIndex(
-        (user) => user === username
-      );
-      if (onlineUserIndex < 0) {
-        return "Offline";
-      }
-      return "Online";
     },
 
     async placeCall(calleeName) {
@@ -223,27 +193,69 @@ const app = new Vue({
         // Create LocalInvitation
         this.localInvitation = this.rtmClient.createLocalInvitation(calleeName);
 
+        this.localInvitation.on(
+          "LocalInvitationAccepted",
+          async (invitationData) => {
+            console.log("LOCAL INVITATION ACCEPTED: ", invitationData);
+
+            // Generate an RTM token using the channel/room name
+            const { data } = await this.generateToken(videoChannelName);
+            // Initialize the agora RTM Client
+            this.initializeAgora();
+            // Join a room using the channel name. The callee will also join the room then accept the call
+            await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
+            this.isCallingUser = false;
+            this.callingUserNotification = "";
+          }
+        );
+
+        this.localInvitation.on("LocalInvitationCanceled", (data) => {
+          console.log("LOCAL INVITATION CANCELED: ", data);
+          this.callingUserNotification = `${calleeName} cancelled the call`;
+          setTimeout(() => {
+            this.isCallingUser = false;
+          }, 5000);
+        });
+        this.localInvitation.on("LocalInvitationRefused", (data) => {
+          console.log("LOCAL INVITATION REFUSED: ", data);
+          this.callingUserNotification = `${calleeName} refused the call`;
+          setTimeout(() => {
+            this.isCallingUser = false;
+          }, 5000);
+        });
+
+        this.localInvitation.on("LocalInvitationReceivedByPeer", (data) => {
+          console.log("LOCAL INVITATION RECEIVED BY PEER: ", data);
+        });
+
+        this.localInvitation.on("LocalInvitationFailure", (data) => {
+          console.log("LOCAL INVITATION FAILURE: ", data);
+          this.callingUserNotification = "Call failed. Try Again";
+        });
+
         // set the channelId
         this.localInvitation.channelId = videoChannelName;
 
         // Send call invitation
         this.localInvitation.send();
 
-        // Generate an RTM token using the channel/room name
-        const { data } = await this.generateToken(videoChannelName);
+        // // Generate an RTM token using the channel/room name
+        // const { data } = await this.generateToken(videoChannelName);
 
-        // Initialize the agora RTM Client
-        this.initializeAgora();
+        // // Initialize the agora RTM Client
+        // this.initializeAgora();
 
-        // Join a room using the channel name. The callee will also join the room then accept the call
-        await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
-        this.isCallingUser = false;
-        this.callingUserNotification = "";
+        // // Join a room using the channel name. The callee will also join the room then accept the call
+        // await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
+        // this.isCallingUser = false;
+        // this.callingUserNotification = "";
       }
     },
 
-    cancelCall() {
-      this.localInvitation.cancel();
+    async cancelCall() {
+      console.log(this.localInvitation);
+      await this.localInvitation.cancel();
+      this.isCallingUser = false;
     },
 
     async acceptCall() {
@@ -314,20 +326,21 @@ const app = new Vue({
         // If the remote user publishes a video track.
         if (mediaType === "video") {
           // Get the RemoteVideoTrack object in the AgoraRTCRemoteUser object.
-          const remoteVideoTrack = user.videoTrack;
-          remoteVideoTrack.play("remote-video");
+          this.remoteVideoTrack = user.videoTrack;
+          this.remoteVideoTrack.play("remote-video");
         }
         // If the remote user publishes an audio track.
         if (mediaType === "audio") {
-          // Get the RemoteAudioTrack object in the AgoraRTCRemoteUser object.
-          const remoteAudioTrack = user.audioTrack;
+          // Get the RemoteAudioTrack object in the AgoraRTCRemoteUser object.term
+          this.remoteAudioTrack = user.audioTrack;
           // Play the remote audio track. No need to pass any DOM element.
-          remoteAudioTrack.play();
+          this.remoteAudioTrack.play();
         }
       });
 
       this.rtcClient.on("user-unpublished", (data) => {
         console.log("USER UNPUBLISHED: ", data);
+        // await this.endCall();
       });
     },
 
@@ -336,29 +349,36 @@ const app = new Vue({
         await AgoraRTC.createMicrophoneAndCameraTracks();
       await this.rtcClient.publish([microphoneTrack, cameraTrack]);
       cameraTrack.play("local-video");
+      this.localAudioTrack = microphoneTrack;
+      this.localVideoTrack = cameraTrack;
     },
 
     async endCall() {
+      this.localAudioTrack.close();
+      this.localVideoTrack.close();
+      this.localAudioTrack.removeAllListeners();
+      this.localVideoTrack.removeAllListeners();
       await this.rtcClient.unpublish();
       await this.rtcClient.leave();
+      this.callPlaced = false;
     },
 
-    handleAudioToggle() {
+    async handleAudioToggle() {
       if (this.mutedAudio) {
-        this.localStream.unmuteAudio();
+        await this.localAudioTrack.setMuted(!this.mutedAudio);
         this.mutedAudio = false;
       } else {
-        this.localStream.muteAudio();
+        await this.localAudioTrack.setMuted(!this.mutedAudio);
         this.mutedAudio = true;
       }
     },
 
-    handleVideoToggle() {
+    async handleVideoToggle() {
       if (this.mutedVideo) {
-        this.localStream.unmuteVideo();
+        await this.localVideoTrack.setMuted(!this.mutedVideo);
         this.mutedVideo = false;
       } else {
-        this.localStream.muteVideo();
+        await this.localVideoTrack.setMuted(!this.mutedVideo);
         this.mutedVideo = true;
       }
     },
