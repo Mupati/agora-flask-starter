@@ -27,6 +27,7 @@ const app = new Vue({
   mounted() {
     this.fetchUsers();
     this.initRtmInstance();
+    // this.initializeRtcClientListeners();
   },
 
   created() {
@@ -95,6 +96,7 @@ const app = new Vue({
         console.log("state: ", state);
         console.log("reason: ", reason);
       });
+
       // Emitted when a Call Invitation is sent from Remote User
       this.rtmClient.on("RemoteInvitationReceived", (data) => {
         this.remoteInvitation = data;
@@ -200,10 +202,10 @@ const app = new Vue({
           async (invitationData) => {
             console.log("LOCAL INVITATION ACCEPTED: ", invitationData);
 
-            // Generate an RTM token using the channel/room name
+            // Generate an RTC token using the channel/room name
             const { data } = await this.generateToken(videoChannelName);
-            // Initialize the agora RTM Client
-            this.initializeAgora();
+            // Initialize the agora RTC Client
+            this.initializeRtcClient();
             // Join a room using the channel name. The callee will also join the room then accept the call
             await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
             this.isCallingUser = false;
@@ -240,17 +242,6 @@ const app = new Vue({
 
         // Send call invitation
         this.localInvitation.send();
-
-        // // Generate an RTM token using the channel/room name
-        // const { data } = await this.generateToken(videoChannelName);
-
-        // // Initialize the agora RTM Client
-        // this.initializeAgora();
-
-        // // Join a room using the channel name. The callee will also join the room then accept the call
-        // await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
-        // this.isCallingUser = false;
-        // this.callingUserNotification = "";
       }
     },
 
@@ -266,7 +257,7 @@ const app = new Vue({
       );
 
       // Initialize AgoraRTC Client
-      this.initializeAgora();
+      this.initializeRtcClient();
 
       // Join the room created by the caller
       await this.joinRoom(
@@ -304,7 +295,7 @@ const app = new Vue({
     /**
      * Agora Events and Listeners
      */
-    initializeAgora() {
+    initializeRtcClient() {
       this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     },
 
@@ -313,14 +304,39 @@ const app = new Vue({
         await this.rtcClient.join(appID, channel, token, AUTH_USER);
         this.callPlaced = true;
         this.createLocalStream();
-        this.initializedAgoraListeners();
+        this.initializeRtcClientListeners();
       } catch (error) {
         console.log(error);
       }
     },
 
-    initializedAgoraListeners() {
-      //   Register event listeners
+    initializeRtcClientListeners() {
+      // Register event listeners
+
+      // When the token completely expires, you rejoin the channel
+      this.rtcClient.on("token-privilege-did-expire", async () => {
+        console.log("token-privilege-did-expire");
+        const channelName =
+          this.localInvitation?.channelId || this.remoteInvitation?.channelId;
+        const { data } = await this.generateToken(channelName);
+        await this.rtcClient.join(
+          data.appID,
+          channelName,
+          data.token,
+          AUTH_USER
+        );
+      });
+
+      // when you receive the first notification that the token is about to expire,
+      // you renew it. You can definitely tweak this to meet your app's logic
+      this.rtcClient.on("token-privilege-will-expire", async () => {
+        console.log("token-privilege-will-expire");
+        const channelName =
+          this.localInvitation?.channelId || this.remoteInvitation?.channelId;
+        const { data } = await this.generateToken(channelName);
+        await this.rtcClient.renewToken(data.token);
+      });
+
       this.rtcClient.on("user-published", async (user, mediaType) => {
         await this.rtcClient.subscribe(user, mediaType);
 

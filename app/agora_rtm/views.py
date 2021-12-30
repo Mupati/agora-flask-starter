@@ -31,7 +31,7 @@ def generate_agora_token():
     appCertificate = os.environ.get('AGORA_APP_CERTIFICATE')
     channelName = request.json['channelName']
     userAccount = auth_user['username']
-    expireTimeInSeconds = 3600
+    expireTimeInSeconds = 120
     currentTimestamp = int(time.time())
     privilegeExpiredTs = currentTimestamp + expireTimeInSeconds
 
