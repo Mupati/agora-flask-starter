@@ -35,15 +35,17 @@ def generate_agora_token():
     appCertificate = os.environ.get('AGORA_APP_CERTIFICATE')
     channelName = request.json['channelName']
     userAccount = auth_user['username']
+    uid = auth_user['id']
     expireTimeInSeconds = 3600
     currentTimestamp = int(time.time())
     privilegeExpiredTs = currentTimestamp + expireTimeInSeconds
 
-    token = RtcTokenBuilder.buildTokenWithAccount(
-        appID, appCertificate, channelName, userAccount, Role_Attendee, privilegeExpiredTs)
+    token = RtcTokenBuilder.buildTokenWithUid(
+        appID, appCertificate, channelName, uid, Role_Attendee, privilegeExpiredTs)
 
     rtm_token = RtmTokenBuilder.buildToken(
         appID, appCertificate, userAccount, Role_Rtm_User, privilegeExpiredTs)
+
     return jsonify({'token': token, 'rtm_token': rtm_token, 'appID': appID})
 
 
@@ -78,7 +80,7 @@ def generate_resource_id():
         "uid": str(userId),
         "clientRequest": {
             "resourceExpiredHour": 24,
-            "scene": 1
+            "scene": 0
         }
     })
 
@@ -111,7 +113,6 @@ def start_recording():
     storage_bucket = os.environ.get('STORAGE_BUCKET')
     storage_access_key = os.environ.get('STORAGE_ACCESS_KEY')
     storage_secret_key = os.environ.get('STORAGE_SECRET_KEY')
-    service_param_url = os.environ.get('SERVICE_PARAM_URL')
 
     # Get the base64 credential for making requests
     credential = generate_base64_credential()
@@ -123,19 +124,20 @@ def start_recording():
         "uid": str(userId),
         "clientRequest": {
             "token": token,
-            "extensionServiceConfig": {
-                "errorHandlePolicy": "error_abort",
-                "extensionServices": [{
-                    "serviceName": "web_recorder_service",
-                    "errorHandlePolicy": "error_abort",
-                    "serviceParam": {
-                        "url": service_param_url,
-                        "audioProfile": 0,
-                        "videoWidth": 1280,
-                        "videoHeight": 720,
-                        "maxRecordingHour": 72
-                    }
-                }]
+            "recordingConfig": {
+                "channelType": 0,
+                "streamTypes": 2,
+                "audioProfile": 1,
+                "videoStreamType": 0,
+                "maxIdleTime": 120,
+                "transcodingConfig": {
+                    "width": 1920,
+                    "height": 1080,
+                    "fps": 60,
+                    "bitrate": 4780,
+                    "maxResolutionUid": "1",
+                    "mixedVideoLayout": 1
+                }
             },
             "recordingFileConfig": {
                 "avFileType": [
@@ -161,7 +163,7 @@ def start_recording():
     app_id = os.environ.get('AGORA_APP_ID')
     resource_id = request.json['resourceId']
     resource_url_path = '/v1/apps/'+app_id + \
-        '/cloud_recording/resourceid/'+resource_id+'/mode/web/start'
+        '/cloud_recording/resourceid/'+resource_id+'/mode/mix/start'
 
     # Send request
     conn.request("POST", resource_url_path, params, headers)
@@ -201,7 +203,7 @@ def stop_recording():
     resource_id = request.json['resourceId']
     sid = request.json['sid']
     resource_url_path = '/v1/apps/'+app_id + \
-        '/cloud_recording/resourceid/'+resource_id+'/sid/'+sid+'/mode/web/stop'
+        '/cloud_recording/resourceid/'+resource_id+'/sid/'+sid+'/mode/mix/stop'
 
     # Send request
     conn.request("POST", resource_url_path, params, headers)

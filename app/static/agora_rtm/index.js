@@ -294,7 +294,7 @@ const app = new Vue({
 
     async joinRoom(appID, token, channel) {
       try {
-        await this.rtcClient.join(appID, channel, token, AUTH_USER);
+        await this.rtcClient.join(appID, channel, token, AUTH_USER_ID);
         this.callPlaced = true;
         this.createLocalStream();
         this.initializedAgoraListeners();
