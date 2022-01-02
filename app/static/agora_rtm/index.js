@@ -23,6 +23,10 @@ const app = new Vue({
     localVideoTrack: null,
     remoteVideoTrack: null,
     remoteAudioTrack: null,
+    resourceId: "",
+    recordingSID: "",
+    rtcToken: null,
+    isRecordingStarted: false,
   },
   mounted() {
     this.fetchUsers();
@@ -36,18 +40,6 @@ const app = new Vue({
   beforeDestroy() {
     this.endCall();
     this.logoutUser();
-  },
-
-  computed: {
-    canDisplayUsers() {
-      console.log(Object.keys(this.updatedOnlineStatus).length);
-      console.log(Object.keys(this.users).length);
-
-      return (
-        Object.keys(this.updatedOnlineStatus).length ===
-        Object.keys(this.users).length - 1
-      );
-    },
   },
 
   methods: {
@@ -202,6 +194,7 @@ const app = new Vue({
 
             // Generate an RTM token using the channel/room name
             const { data } = await this.generateToken(videoChannelName);
+            this.rtcToken = data.token;
             // Initialize the agora RTM Client
             this.initializeAgora();
             // Join a room using the channel name. The callee will also join the room then accept the call
@@ -240,17 +233,6 @@ const app = new Vue({
 
         // Send call invitation
         this.localInvitation.send();
-
-        // // Generate an RTM token using the channel/room name
-        // const { data } = await this.generateToken(videoChannelName);
-
-        // // Initialize the agora RTM Client
-        // this.initializeAgora();
-
-        // // Join a room using the channel name. The callee will also join the room then accept the call
-        // await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
-        // this.isCallingUser = false;
-        // this.callingUserNotification = "";
       }
     },
 
@@ -264,6 +246,8 @@ const app = new Vue({
       const { data } = await this.generateToken(
         this.remoteInvitation.channelId
       );
+
+      this.rtcToken = data.token;
 
       // Initialize AgoraRTC Client
       this.initializeAgora();
@@ -381,6 +365,92 @@ const app = new Vue({
       } else {
         await this.localVideoTrack.setMuted(!this.mutedVideo);
         this.mutedVideo = true;
+      }
+    },
+
+    async getResourceId() {
+      const channelName =
+        this.localInvitation?.channelId || this.remoteInvitation?.channelId;
+      try {
+        const res = await axios.post(
+          "/agora-rtm/resource-id",
+          {
+            channelName,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json;charset=utf-8",
+              "X-CSRFToken": CSRF_TOKEN,
+            },
+          }
+        );
+        console.log(res);
+        if (res.status === 200) {
+          return res.data.resourceId;
+        }
+        throw new Error("An error occured");
+      } catch (error) {
+        console.log(error);
+      }
+    },
+
+    async startRecording() {
+      const resourceId = await this.getResourceId();
+      const channelName =
+        this.localInvitation?.channelId || this.remoteInvitation?.channelId;
+      try {
+        const res = await axios.post(
+          "/agora-rtm/start-recording",
+          {
+            channelName,
+            resourceId,
+            token: this.rtcToken,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json;charset=utf-8",
+              "X-CSRFToken": CSRF_TOKEN,
+            },
+          }
+        );
+
+        if (res.status === 200) {
+          this.resourceId = res.data.resourceId;
+          this.recordingSID = res.data.sid;
+          this.isRecordingStarted = true;
+        }
+
+        return res.data;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+
+    async stopRecording() {
+      const channelName =
+        this.localInvitation?.channelId || this.remoteInvitation?.channelId;
+      try {
+        const res = await axios.post(
+          "/agora-rtm/stop-recording",
+          {
+            channelName,
+            resourceId: this.resourceId,
+            token: this.rtcToken,
+            sid: this.recordingSID,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json;charset=utf-8",
+              "X-CSRFToken": CSRF_TOKEN,
+            },
+          }
+        );
+        if (res.status === 200) {
+          this.isRecordingStarted = false;
+        }
+        console.log(res);
+      } catch (error) {
+        console.log(error);
       }
     },
   },

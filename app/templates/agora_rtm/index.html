@@ -84,6 +84,22 @@
       <button type="button" class="btn btn-danger" @click="endCall">
         EndCall
       </button>
+      <button
+        type="button"
+        class="btn btn-info ml-2"
+        @click="startRecording"
+        v-if="isRecordingStarted"
+      >
+        Start Recording
+      </button>
+      <button
+        type="button"
+        class="btn btn-info ml-2"
+        @click="stopRecording"
+        v-else
+      >
+        Stop Recording
+      </button>
     </div>
   </section>
 </div>
