@@ -173,7 +173,7 @@ def start_recording():
 
 
 @agora_rtm.route('/agora-rtm/stop-recording', methods=['POST'])
-def start_recording():
+def stop_recording():
     auth_user = current_user.to_json()
     userId = auth_user['id']
     channelName = request.json['channelName']
