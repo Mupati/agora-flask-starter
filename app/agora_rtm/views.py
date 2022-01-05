@@ -3,10 +3,14 @@ import time
 from flask import render_template, jsonify, request
 from flask_login import login_required, current_user
 
+from agora_token_builder import RtcTokenBuilder, RtmTokenBuilder
+
 from . import agora_rtm
 from ..models import User
-from .agora_key.RtcTokenBuilder import RtcTokenBuilder, Role_Attendee
-from .agora_key.RtmTokenBuilder import RtmTokenBuilder, Role_Rtm_User
+
+
+ROLE_RTM_USER = 1
+ROLE_PUBLISHER = 1
 
 
 @agora_rtm.route('/agora-rtm')
@@ -36,8 +40,8 @@ def generate_agora_token():
     privilegeExpiredTs = currentTimestamp + expireTimeInSeconds
 
     token = RtcTokenBuilder.buildTokenWithAccount(
-        appID, appCertificate, channelName, userAccount, Role_Attendee, privilegeExpiredTs)
+        appID, appCertificate, channelName, userAccount, ROLE_PUBLISHER, privilegeExpiredTs)
 
     rtm_token = RtmTokenBuilder.buildToken(
-        appID, appCertificate, userAccount, Role_Rtm_User, privilegeExpiredTs)
+        appID, appCertificate, userAccount, ROLE_RTM_USER, privilegeExpiredTs)
     return jsonify({'token': token, 'rtm_token': rtm_token, 'appID': appID})
