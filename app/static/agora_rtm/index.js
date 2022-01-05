@@ -12,11 +12,11 @@ const app = new Vue({
     incomingCaller: "",
     incomingCallNotification: "",
     rtmClient: null,
-    rtmChannel: null,
+    rtmChannelInstance: null,
     rtcClient: null,
     users: [],
     updatedOnlineStatus: {},
-    channelName: null,
+    rtmChannelName: null,
     isCallingUser: false,
     callingUserNotification: "",
     localAudioTrack: null,
@@ -38,18 +38,6 @@ const app = new Vue({
     this.logoutUser();
   },
 
-  computed: {
-    canDisplayUsers() {
-      console.log(Object.keys(this.updatedOnlineStatus).length);
-      console.log(Object.keys(this.users).length);
-
-      return (
-        Object.keys(this.updatedOnlineStatus).length ===
-        Object.keys(this.users).length - 1
-      );
-    },
-  },
-
   methods: {
     async fetchUsers() {
       const { data } = await axios.get("/users");
@@ -58,7 +46,7 @@ const app = new Vue({
 
     async logoutUser() {
       console.log("destroyed!!!");
-      this.rtmChannel.leave(AUTH_USER);
+      this.rtmChannelInstance.leave(AUTH_USER);
       await this.rtmClient.logout();
     },
 
@@ -69,10 +57,10 @@ const app = new Vue({
       });
 
       // RTM Channel to be used
-      this.channelName = "videoCallChannel";
+      this.rtmChannelName = "videoCallChannel";
 
       // Generate the RTM token
-      const { data } = await this.generateToken(this.channelName);
+      const { data } = await this.generateToken(this.rtmChannelName);
 
       // Login when it mounts
       await this.rtmClient.login({
@@ -133,18 +121,20 @@ const app = new Vue({
       });
 
       // Create a channel and listen to messages
-      this.rtmChannel = this.rtmClient.createChannel(this.channelName);
+      this.rtmChannelInstance = this.rtmClient.createChannel(
+        this.rtmChannelName
+      );
 
       // Join the RTM Channel
-      this.rtmChannel.join();
+      this.rtmChannelInstance.join();
 
-      this.rtmChannel.on("ChannelMessage", (message, memberId) => {
+      this.rtmChannelInstance.on("ChannelMessage", (message, memberId) => {
         console.log("ChannelMessage");
         console.log("message: ", message);
         console.log("memberId: ", memberId);
       });
 
-      this.rtmChannel.on("MemberJoined", (memberId) => {
+      this.rtmChannelInstance.on("MemberJoined", (memberId) => {
         console.log("MemberJoined");
 
         // check whether user exists before you add them to the online user list
@@ -156,7 +146,7 @@ const app = new Vue({
         }
       });
 
-      this.rtmChannel.on("MemberLeft", (memberId) => {
+      this.rtmChannelInstance.on("MemberLeft", (memberId) => {
         console.log("MemberLeft");
         console.log("memberId: ", memberId);
         const leavingUserIndex = this.onlineUsers.findIndex(
@@ -165,7 +155,7 @@ const app = new Vue({
         this.onlineUsers.splice(leavingUserIndex, 1);
       });
 
-      this.rtmChannel.on("MemberCountUpdated", (data) => {
+      this.rtmChannelInstance.on("MemberCountUpdated", (data) => {
         console.log("MemberCountUpdated");
       });
     },
