@@ -200,10 +200,10 @@ const app = new Vue({
           async (invitationData) => {
             console.log("LOCAL INVITATION ACCEPTED: ", invitationData);
 
-            // Generate an RTM token using the channel/room name
+            // Generate an RTC token using the channel/room name
             const { data } = await this.generateToken(videoChannelName);
-            // Initialize the agora RTM Client
-            this.initializeAgora();
+            // Initialize the agora RTC Client
+            this.initializeRTCClient();
             // Join a room using the channel name. The callee will also join the room then accept the call
             await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
             this.isCallingUser = false;
@@ -240,17 +240,6 @@ const app = new Vue({
 
         // Send call invitation
         this.localInvitation.send();
-
-        // // Generate an RTM token using the channel/room name
-        // const { data } = await this.generateToken(videoChannelName);
-
-        // // Initialize the agora RTM Client
-        // this.initializeAgora();
-
-        // // Join a room using the channel name. The callee will also join the room then accept the call
-        // await this.joinRoom(AGORA_APP_ID, data.token, videoChannelName);
-        // this.isCallingUser = false;
-        // this.callingUserNotification = "";
       }
     },
 
@@ -266,7 +255,7 @@ const app = new Vue({
       );
 
       // Initialize AgoraRTC Client
-      this.initializeAgora();
+      this.initializeRTCClient();
 
       // Join the room created by the caller
       await this.joinRoom(
@@ -304,7 +293,7 @@ const app = new Vue({
     /**
      * Agora Events and Listeners
      */
-    initializeAgora() {
+    initializeRTCClient() {
       this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     },
 
@@ -313,13 +302,13 @@ const app = new Vue({
         await this.rtcClient.join(appID, channel, token, AUTH_USER);
         this.callPlaced = true;
         this.createLocalStream();
-        this.initializedAgoraListeners();
+        this.initializeRTCListeners();
       } catch (error) {
         console.log(error);
       }
     },
 
-    initializedAgoraListeners() {
+    initializeRTCListeners() {
       //   Register event listeners
       this.rtcClient.on("user-published", async (user, mediaType) => {
         await this.rtcClient.subscribe(user, mediaType);
